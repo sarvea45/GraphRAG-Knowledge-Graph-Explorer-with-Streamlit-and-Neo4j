@@ -75,7 +75,14 @@ def setup_database():
     with driver.session() as session:
         # Create vector index if it doesn't exist
         try:
-            session.run("CALL db.index.vector.createNodeIndex('entity_embeddings', 'Entity', 'embedding', 1536, 'cosine')")
+            session.run("""
+            CREATE VECTOR INDEX entity_embeddings IF NOT EXISTS
+            FOR (e:Entity) ON (e.embedding)
+            OPTIONS {indexConfig: {
+                `vector.dimensions`: 1536,
+                `vector.similarity_function`: 'cosine'
+            }}
+            """)
         except Exception:
             pass
         # Create constraint on name to avoid duplicates
@@ -112,7 +119,8 @@ def process_directory(pdf_dir):
                     
                     query = f"""
                     MERGE (e:Entity {{name: $name}})
-                    ON CREATE SET e.id = $id, e.type = $type, e.description = $desc, e.embedding = $embedding
+                    ON CREATE SET e.id = $id
+                    SET e.type = $type, e.description = $desc, e.embedding = $embedding
                     WITH e
                     CALL apoc.create.addLabels(e, [$type]) YIELD node
                     RETURN e

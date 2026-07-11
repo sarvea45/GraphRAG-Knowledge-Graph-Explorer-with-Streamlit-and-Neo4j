@@ -13,7 +13,7 @@ services:
     volumes:
       - ./data:/data
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:7474"]
+      test: ["CMD-SHELL", "curl -f http://localhost:7474 || exit 1"]
       interval: 10s
       timeout: 10s
       retries: 20
@@ -22,7 +22,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8082:8000"
+      - "8000:8000"
     env_file:
       - .env
     volumes:
