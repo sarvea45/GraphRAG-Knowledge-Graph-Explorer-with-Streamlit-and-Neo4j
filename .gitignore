@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+data/*
+!data/pdfs/
+data/pdfs/*
+!data/pdfs/.gitkeep
