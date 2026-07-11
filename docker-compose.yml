@@ -15,7 +15,7 @@ services:
     networks:
       - graphrag_net
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7474"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:7474"]
       interval: 10s
       timeout: 10s
       retries: 20
