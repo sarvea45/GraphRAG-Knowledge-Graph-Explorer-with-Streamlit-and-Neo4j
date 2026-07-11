@@ -31,7 +31,7 @@ def execute_graphrag(question: str):
     with driver.session() as session:
         # Vector search for anchor nodes
         query = """
-        CALL db.index.vector.queryNodes('entity_embeddings', 5, $embedding)
+        CALL db.index.vector.queryNodes('entity_embeddings', 15, $embedding)
         YIELD node, score
         RETURN node.name AS name, node.type AS type, node.description AS description, score
         """
