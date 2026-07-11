@@ -5,8 +5,14 @@ import uuid
 import pdfplumber
 from openai import OpenAI
 from neo4j import GraphDatabase
+from fastembed import TextEmbedding
 
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+client = OpenAI(
+    base_url="https://api.groq.com/openai/v1",
+    api_key=os.environ.get("GROQ_API_KEY")
+)
+
+embedding_model = TextEmbedding(model_name="BAAI/bge-small-en-v1.5")
 
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://neo4j:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
@@ -35,11 +41,13 @@ def chunk_text(text, chunk_size=2000, overlap=200):
 
 def extract_entities_relationships(chunk):
     prompt = """
-    Extract entities and relationships from the following text to build a knowledge graph.
+    Extract entities and relationships from the following text to build a detailed knowledge graph.
+    IMPORTANT INSTRUCTION: Do NOT generalize specific numbers, quantities, salaries, or dates. You MUST capture highly specific details (e.g. 'INR 9,41,460', '7 CGPA', '2027') either as their own distinct Entities, or vividly include them in the 'description' field of relevant entities.
+    
     Output strictly in JSON format with the following structure:
     {
       "entities": [
-        {"name": "Entity Name", "type": "Entity Type (e.g., Concept, Algorithm, Technology, Person, Organization, Location)", "description": "Brief description of the entity"}
+        {"name": "Entity Name", "type": "Entity Type (e.g., Concept, Algorithm, Technology, Person, Organization, Location, Metric, Requirement)", "description": "Highly detailed description including specific numbers, values, and constraints if applicable"}
       ],
       "relationships": [
         {"source": "Source Entity Name", "target": "Target Entity Name", "relation": "RELATION_TYPE_IN_UPPERCASE"}
@@ -49,7 +57,7 @@ def extract_entities_relationships(chunk):
     """ + chunk
 
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model="llama-3.1-8b-instant",
         messages=[
             {"role": "system", "content": "You are a helpful assistant that extracts structured data for a knowledge graph. Output only valid JSON."},
             {"role": "user", "content": prompt}
@@ -64,11 +72,8 @@ def extract_entities_relationships(chunk):
         return {"entities": [], "relationships": []}
 
 def generate_embedding(text):
-    response = client.embeddings.create(
-        input=text,
-        model="text-embedding-3-small"
-    )
-    return response.data[0].embedding
+    embedding = list(embedding_model.embed([text]))[0].tolist()
+    return embedding
 
 def setup_database():
     driver = get_neo4j_driver()
@@ -76,12 +81,13 @@ def setup_database():
         # Create vector index if it doesn't exist
         try:
             session.run("""
-            CREATE VECTOR INDEX entity_embeddings IF NOT EXISTS
-            FOR (e:Entity) ON (e.embedding)
-            OPTIONS {indexConfig: {
-                `vector.dimensions`: 1536,
-                `vector.similarity_function`: 'cosine'
-            }}
+            CALL db.index.vector.createNodeIndex(
+                'entity_embeddings',
+                'Entity',
+                'embedding',
+                384,
+                'cosine'
+            )
             """)
         except Exception:
             pass

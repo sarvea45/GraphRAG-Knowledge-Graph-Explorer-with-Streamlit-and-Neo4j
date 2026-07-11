@@ -38,4 +38,6 @@ def run_graphrag(request: GraphRagRequest):
     try:
         return execute_graphrag(request.question)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
